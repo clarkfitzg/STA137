@@ -1,0 +1,39 @@
+Practice problem set 2
+
+Problem 3
+
+Simulate 200 values from $X_t = \sin(\frac(t)(20) + Z_t$ where $Z_t$ iid
+with mean 0 and variance 0.25.
+
+Might be interesting to use different distributions for x.
+
+```{r}
+n = 200
+
+t = 1:n
+z = rnorm(n, sd = sqrt(0.25))
+x = sin(t / 20) + z 
+
+plot(t, x)
+```
+
+Check for whiteness using sample ACF.
+
+```{r}
+acf(x)
+
+# Verify location of the confidence interval line
+2 / sqrt(n)
+```
+
+All of these are over the noise variance, so we conclude that this is not
+white noise.
+
+The Portmanteau test:
+
+```{r}
+Box.test(x, lag=20, type='Ljung')
+```
+TODO- what's the significance of the lag?
+
+Tiny p-value.
