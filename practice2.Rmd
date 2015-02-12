@@ -33,7 +33,63 @@ The Portmanteau test:
 
 ```{r}
 Box.test(x, lag=20, type='Ljung')
+Box.test(x, lag=3, type='Ljung')
 ```
 TODO- what's the significance of the lag?
+How to pick the right one?
 
 Tiny p-value.
+
+## Problem 5
+
+```{r}
+n = 200
+x = arima.sim(list(ma=0.5), n=n)
+mean(x)
+plot(x)
+
+# Sample ACF is right on- 2nd entry should be 0.4
+acf(x)
+
+# Theoretical 95% confidence interval for the mean
+alpha = 0.05
+interval = qnorm(1 - alpha / 2) * sqrt((9 * n - 4) / (4 * n^2))
+
+# Simulate a bunch of sample means
+sims = replicate(1e4, mean(arima.sim(list(ma=0.5), n=n)))
+hist(sims)
+
+# How many were inside the theoretical confidence interval?
+sum(abs(sims) < interval) / length(sims)
+```
+
+Bumping it up to 100K replications gives 0.94932 inside the 95% confidence
+interval. Exactly what we like to see.
+
+Let's look at the ACF's for AR and MA processes. Try to develop a little
+intuition here. I expect that an AR(p) process only has the ACF different
+for the first p values of h. Nope- totally wrong!
+
+```{r}
+n = 200
+x = arima.sim(list(ar=0.999), n=n)
+plot(x)
+acf(x)
+
+x2 = arima.sim(list(ar=0.7), n=n)
+acf(x2)
+```
+
+So this is in some sense 'close' to a random walk.
+
+It looks like the MA(q) process should in fact have ACF different for the 
+first q values of h. Yep.
+
+```{r}
+n = 200
+x = arima.sim(list(ma=c(0.5, 2, 1)), n=n)
+plot(x)
+acf(x)
+```
+
+This is pretty cool.

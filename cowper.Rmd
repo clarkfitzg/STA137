@@ -1,0 +1,59 @@
+
+Looking at Cowpertwait and Metcalfe's Introductory Time Series with R
+
+# Chapter 1
+
+```{r}
+data(AirPassengers)
+AP = AirPassengers
+plot(AP)
+plot(aggregate(AP))
+boxplot(AP ~ cycle(AP))
+```
+
+
+```{r}
+d = decompose(AP, type='add')
+plot(d)
+```
+
+```{r}
+d2 = decompose(AP, type='mult')
+plot(d2)
+```
+
+```{r}
+r = na.omit(d2$random)
+ra = acf(r)
+a = acf(AP)
+```
+
+P. 74 simulated random walk
+
+```{r}
+x = rnorm(201)
+y = cumsum(x)
+acf(y)
+acf(x)
+```
+
+MA(1) 
+
+```{r}
+x = arima.sim(list(ma=0.9999), 200)
+acf(x)
+```
+
+AR(1)
+
+```{r}
+x = arima.sim(list(ar=0.9999), 200)
+acf(x)
+plot(x)
+acf(diff(x))
+```
+This AR(1) process has even more than a random walk.
+We conclude that it's difficult to distinguish an AR(1) process
+from a random walk if the parameter is near 1. This follows directly from
+the derivation for the ACF.
+
