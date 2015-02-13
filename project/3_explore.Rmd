@@ -1,0 +1,26 @@
+
+```{r}
+library(biglm)
+load('fastrak.Rda')
+```
+
+Wow this is so much faster than doing all the preprocessing every time!
+
+```{r}
+head(fastrak)
+# Should be all factors except count
+sapply(fastrak, class)
+dim(fastrak)
+hist(fastrak$count)
+hist(sqrt(fastrak$count))
+
+fit1 = biglm(sqrt(count) ~ station + hour + weekday + month + year, fastrak)
+```
+
+Fitting this model takes a good 10 minutes on my laptop.
+
+```{r}
+s1 = summary(fit1)
+
+```
+

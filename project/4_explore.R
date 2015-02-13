@@ -61,3 +61,5 @@ plot(r2$time, r2$residuals, type='l')
 ?savePlot
 savePlot('weekresiduals.png')
 savehistory('4_explore.R')
+
+fit2 = lmer(sqrt(count) ~ hour + weekday + month + year + (1|station) +(1:station:weekday), fastrak)

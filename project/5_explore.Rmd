@@ -1,0 +1,109 @@
+
+Used the department servers to fit a mixed effects model. I'm hoping that
+removed the trend and seasonality.
+
+The model was:
+
+```
+fit2 = lmer(sqrt(count) ~ hour + weekday + month + year + (1|station) +(1:station:weekday), fastrak)
+```
+
+```{r}
+load('fastrak.Rda')
+```
+
+Lets focus on a single time series now. We'll look at the one on Carquinez
+bridge because that's the one I drive on most. This is I-80 East headed
+away from the Bay Area. 
+
+This brings up another very interesting possibility for modeling- most
+of these time series come in pairs- toll plazas on both sides of the
+freeway. Would it be possible to capture this relation in a statistical
+model? Since typically traffic flows more heavily one way in the morning
+and so on.
+
+Look this information up from the station table.
+
+```{r}
+t1 = fastrak[fastrak$station == 1100, ]
+# Sort on time
+t1 = t1[order(t1$time), ]
+```
+
+Estimate total revenue over the period in billions of dollars.
+
+```{r}
+sum(fastrak$count) * 5 / 1e9
+```
+
+How many zeros are in the data?
+
+```{r}
+sum(t1$count == 0) / nrow(t1)
+```
+
+0.4?! No way. So we have significant missing data here which has been
+encoded with zeros. How about in the whole data set?
+
+```{r}
+sum(fastrak$count == 0) / nrow(fastrak)
+```
+
+About a quarter. So the hard thing now is that some of these are in fact
+true zeros. How can we distinguish? We could see if there's a gap between
+the zeros and the next common observations.
+
+```{r}
+with(fastrak, hist(count[count < 100]))
+h = hist(fastrak$count, breaks=c(-1, 1, 100, 1000, 1e4))
+plot(h$counts)
+```
+
+A first look at a slice:
+
+```{r}
+slice = 25000:25100
+t1s = t1[slice, ]
+plot(t1s$time, t1s$count, type='l')
+plot(t1s$time, t1s$residuals, type='l')
+```
+
+From this plot it seems like the zeros occur together for many times.
+A simple way to detect this would be to count the number of consecutive
+zeros- if it's greater than some number k then we encode all the values to
+NA within that period.
+
+```{r}
+t1z = t1$count == 0
+r1 = rle(t1z)
+plot(r1$lengths[r1$lengths < 24])
+```
+
+We observe many cases of runs of zeros just being equal to 1 or 2. 
+Those may be legitimate. Imagine a 5 hour period on a major freeway when no
+cars went by. This seems highly improbable. Let's look at a 6 hour stretch
+and see what makes sense.
+
+```{r}
+t1s = t1[50:150, ]
+plot(t1s$time, t1s$count, type='l')
+```
+
+Here we see some 0 periods occuring at mid day on Tuesday and Wednesday- so
+they're almost certainly invalid readings.
+This motivates setting k = 3 or 4.
+
+Here's a slice without zeros:
+
+```{r}
+slice = 15000:15100
+t1s = t1[slice, ]
+plot(t1s$time, t1s$count, type='l')
+```
+
+Let's write a function to filter these outliers.
+
+```{r}
+
+```
+
