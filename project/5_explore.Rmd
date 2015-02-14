@@ -110,13 +110,13 @@ zerorun = function(x, k){
     # Returns a logical vector which is TRUE if the corresponding 
     # entry in x is in such a run
     iszero = x == 0
-    r1 = rle(t1z)
+    r1 = rle(x)
     islong = (r1$lengths >= k)
     rep(islong, r1$lengths)
 }
 
-x = t1$count
-k = 100
+x = c(rep(0, 10), 1, 0)
+zerorun(x, 5)
 
 original = rle(x == 0)
 length(original$values)
