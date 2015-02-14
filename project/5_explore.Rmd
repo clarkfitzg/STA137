@@ -5,7 +5,7 @@ removed the trend and seasonality.
 The model was:
 
 ```
-fit2 = lmer(sqrt(count) ~ hour + weekday + month + year + (1|station) +(1:station:weekday), fastrak)
+fit2 = lmer(sqrt(count) ~ hour + weekday + month + year + (1|station) +(1|station:weekday), fastrak)
 ```
 
 ```{r}
@@ -104,6 +104,32 @@ plot(t1s$time, t1s$count, type='l')
 Let's write a function to filter these outliers.
 
 ```{r}
+zerorun = function(x, k){
+    # Determine whether the zeros in x occur in a run of 
+    # at least k.
+    # Returns a logical vector which is TRUE if the corresponding 
+    # entry in x is in such a run
+    iszero = x == 0
+    r1 = rle(t1z)
+    islong = (r1$lengths >= k)
+    rep(islong, r1$lengths)
+}
 
+x = t1$count
+k = 100
+
+original = rle(x == 0)
+length(original$values)
+new = rle(zerorun(x, k))
+
+original$lengths
+length(new$values)
+
+(new$lengths[new$values == FALSE])
+max(new$lengths[new$values == FALSE])
+
+d = data.frame(new$values, new$lengths)
+head(d, 20)
+d[d$new.values == FALSE, ]
 ```
 

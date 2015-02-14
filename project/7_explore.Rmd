@@ -1,0 +1,45 @@
+
+```{r}
+load('fastrak.Rda')
+```
+
+Maybe we should limit the scope of this to a single pair of stations. Which
+ones have the most nonzero entries?
+
+```{r}
+totals = data.frame(totlen = tapply(fastrak$count, fastrak$station, length)
+, nozerolen = tapply(fastrak$count, fastrak$station, function(x) sum(x != 0)))
+
+totals$ratios = with(totals, nozerolen / totlen)
+totals$station = row.names(totals)
+
+plot(totals$ratios)
+```
+
+We observe that one pair is perfect- 25000 and 25100. What are the
+corresponding counts? Very small. Too bad.
+
+```{r}
+t2 = totals[order(totals$nozerolen, decreasing=TRUE), ]
+t2
+t2[1:30, ]
+```
+
+If we want to first just focus on a pair of stations it looks like 4300 and
+4301 (Santa Rosa) would be a good bet. Also 15900 and 15901 (101).
+
+How about doing the Golden Gate bridge? That's 5001 and 5100
+
+```{r}
+totals[totals$station %in% c(5001, 5100), ]
+```
+40% nonzero. That's terrible, and similar to the Carquinez bridge.
+
+Bay bridge?
+```{r}
+totals[totals$station %in% c(17300), ]
+```
+
+90%. This is the first one that seems reasonable. We can check some plots
+and see if we get the same sort of 0 spots.
+

@@ -1,0 +1,120 @@
+```{r}
+load('fastrak.Rda')
+```
+
+Ok, focusing on the Bay Bridge toll plaza now.
+
+```{r}
+bb = fastrak[fastrak$station == 17300, ]
+bb = bb[order(bb$time), ]
+dim(bb)
+```
+
+Check if we're seeing these runs of zeros.
+
+```{r}
+zeros = bb$count == 0
+z = rle(zeros)
+hist(z$lengths[z$lengths < 24])
+sort(z$lengths, decreasing=T)
+```
+
+I find it hard to believe that there were ever any hours when the Bay
+Bridge was open without traffic.
+
+```{r}
+with(bb[1:1000, ], plot(time, count))
+```
+
+Now this looks totally ridiculous. There's lots of missing data and the
+count is surely greater than this.
+
+```{r}
+max(bb$count)
+```
+
+```{r}
+with(bb[1:2000, ], plot(time, count))
+
+with(bb[1:5000, ], plot(time, count))
+with(bb[5000:10000, ], plot(time, count, alpha=0.2))
+with(bb[10000:15000, ], plot(time, count))
+with(bb[15000:20000, ], plot(time, count))
+```
+
+I find it very hard to believe that these maxima are really around 500.
+1 car a second would be 3600 / hour. 500 a second means the max rate per
+day is around 1 car in every 14 seconds. That's too few.
+
+
+```{r}
+with(bb, plot(time, count))
+```
+
+```{r}
+# plot in chunks of 5000
+plotpart = function(k, dframe=bb, chunk=5000){
+    with(dframe[k*chunk + (1:chunk), ], plot(time, count))
+}
+plotpart(4)
+plotpart(5)
+plotpart(6)
+plotpart(7)
+plotpart(8)
+plotpart(9)
+plotpart(10)
+```
+
+Is it all this bad at the other stations? Say San Mateo?
+
+```{r}
+sm = fastrak[fastrak$station == 15900, ]
+sm = sm[order(sm$time), ]
+dim(sm)
+```
+
+```{r}
+for (i in 1:11){ 
+    plotpart(i, dframe=sm) 
+    Sys.sleep(5)
+}
+```
+This one looks quite a bit more consistent than the Bay bridge.
+
+```{r}
+with(sm, plot(time, count))
+
+with(sm[sm$year == 2010, ], plot(time, count))
+```
+
+So maybe we just pick a consistent period out of here. I wonder if the
+other one looks the same?
+
+```{r}
+sm2 = fastrak[fastrak$station == 15901, ]
+sm2 = sm2[order(sm2$time), ]
+dim(sm2)
+```
+
+```{r}
+with(sm2, plot(time, count))
+```
+
+```{r}
+plotpart(80, sm2, chunk=500)
+```
+
+What about just throwing out the zeros?
+
+```{r}
+with(sm, hist(count[count < 10]))
+```
+
+I'd say this provides pretty strong evidence for coding 0 as NA.
+
+```{r}
+zsm = rle(sm$count == 0)
+max(zsm$lengths)
+hist(zsm$lengths[zsm$lengths < 10])
+```
+
