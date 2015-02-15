@@ -45,19 +45,26 @@ have missing data encoded as 0's.
 period. This is extremely unlikely if the toll was operational.
 
 We can fix this by identifying the runs of 3 or more zeros and changing the
-corresponding counts to NA. 
+corresponding counts to NA. When we did this we saw huge negative
+residuals when models were fitted. The more conservative thing to do is
+transform all the zeros to NA.
 
 ```{r}
-# Before:
-sum(is.na(sr1$count))
+sr1$count[sr1$count == 0] = NA
+```
 
-# Using custom function
-zr1 = zerorun(sr1$count, 3)
-
-sr1$count[zr1] = NA
-
-# After:
-sum(is.na(sr1$count))
+```{r}
+# Didn't really work:
+## Before:
+#sum(is.na(sr1$count))
+#
+## Using custom function
+#zr1 = zerorun(sr1$count, 3)
+#
+#sr1$count[zr1] = NA
+#
+## After:
+#sum(is.na(sr1$count))
 ```
 
 So this eliminates about 4000 points.
@@ -146,10 +153,25 @@ We get some huge negative numbers. I'll bet that's because March 17th had a
 zero for an NA value which was not removed. So we probably need to remove
 all the zeros!
 
-
-Let's see if we get anything reasonable from the ACF.
+Still see a bunch of unusually low values when all zeros are removed. My
+suspicion is that the sensor stopped working for a short period of time.
+Then picked back up again. So what we actually need to do is code as NA all
+those points that are on the border of the zeros as well. Because the
+sensor wasn't totally functioning at that hour.
 
 ```{r}
-acf(sr1$residuals)
+with(sr1, plot(time, residuals, col=alpha('black', 0.1)))
+abline(h=0, col='yellow', lwd=2)
 ```
 
+Looks like icicles hanging off the data centered around 0.
+
+Let's see if we get anything reasonable from the ACF. The data isn't
+exactly equi-spaced, but it's not too far off either.
+
+```{r}
+acf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
+pacf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
+```
+
+Looks like there's lots here for further analysis.
