@@ -28,15 +28,47 @@ t2[1:30, ]
 If we want to first just focus on a pair of stations it looks like 4300 and
 4301 (Santa Rosa) would be a good bet. Also 15900 and 15901 (101).
 
+```{r}
+sr = fastrak[fastrak$station == 4300, ]
+with(sr[sr$year == 2010, ], plot(time, count))
+```
+Everything is showing this doubled period in July of 2010. What if we just
+drop these suspicious observations? Also, it would be feasible to run
+through and plot most stations, dropping suspicious areas as we see fit. This would let us
+still run the ANOVA model.
+
+They all seem to be missing a chunk in July 2010 as well as a zero period
+in October of 2009.
+```{r}
+library(scales)
+bigplot = function(stationnumber){
+    # Plot the whole series for a station
+    x = fastrak[fastrak$station == stationnumber, ]
+    with(x, plot(time, count, col=alpha('black', 0.1)))
+}
+# This one is missing the July chunk
+bigplot(21200)
+# This one has more problems
+bigplot(300)
+# More problems
+bigplot(2501)
+# Missing july chunk
+bigplot(6701)
+# Missing some more chunks
+bigplot(17500)
+```
+
 How about doing the Golden Gate bridge? That's 5001 and 5100
 
 ```{r}
+bigplot(5100)
 totals[totals$station %in% c(5001, 5100), ]
 ```
 40% nonzero. That's terrible, and similar to the Carquinez bridge.
 
 Bay bridge?
 ```{r}
+bigplot(17300)
 totals[totals$station %in% c(17300), ]
 ```
 
