@@ -85,7 +85,7 @@ abline(v=c(startbig, endbig), lwd=2)
 
 # Transform to NA's
 toobig = (startbig < sr1$time) & (sr1$time < endbig)
-sr1$time[toobig] = NA
+sr1$count[toobig] = NA
 ```
 
 Let's inspect the data to see the effect of the cleaning.
@@ -175,3 +175,21 @@ pacf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
 ```
 
 Looks like there's lots here for further analysis.
+
+Is there missing data in addition to the 0 values?
+
+```{r}
+delta = diff(sr1$time)
+summary(as.numeric(delta))
+max(delta, na.rm=TRUE)
+sum(delta > 4000, na.rm=TRUE)
+table(as.numeric(delta[delta > 4000]))
+```
+
+Only 25 of 50,000 observations are not on the hour. That's encouraging.
+The largest one corresponds to 
+
+```{r}
+sr1$time[which.max(delta)]
+```
+
