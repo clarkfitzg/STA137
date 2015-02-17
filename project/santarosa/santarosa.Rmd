@@ -181,15 +181,29 @@ Is there missing data in addition to the 0 values?
 ```{r}
 delta = diff(sr1$time)
 summary(as.numeric(delta))
-max(delta, na.rm=TRUE)
+# Missing in days
+as.numeric(max(delta, na.rm=TRUE)) / (60 * 60 * 24)
 sum(delta > 4000, na.rm=TRUE)
 table(as.numeric(delta[delta > 4000]))
 ```
 
 Only 25 of 50,000 observations are not on the hour. That's encouraging.
-The largest one corresponds to 
+
+Here's a plot that shows the true missing values.
+
+```{r}
+# All times under consideration:
+alltimes = seq(from=min(sr1$time), to=max(sr1$time), by=delta[1])
+notthere = !(alltimes %in% sr1$time)
+plot(alltimes[notthere], rep(1, sum(notthere)))
+```
 
 ```{r}
 sr1$time[which.max(delta)]
+a = as.POSIXct('2012-10-01')
+b = as.POSIXct('2012-12-01')
+ab = (a < sr1$time) & (sr1$time < b)
+with(sr1[ab, ], plot(time, rep(1, length(time))))
 ```
 
+Surprising that this didn't show up more promininetly on the main plot.

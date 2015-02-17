@@ -109,7 +109,7 @@ abline(v=c(startbig, endbig), lwd=2)
 ```r
 # Transform to NA's
 toobig = (startbig < sr1$time) & (sr1$time < endbig)
-sr1$time[toobig] = NA
+sr1$count[toobig] = NA
 ```
 
 Let's inspect the data to see the effect of the cleaning.
@@ -131,7 +131,7 @@ sum(is.na(sr1$count) / length(sr1$count))
 ```
 
 ```
-## [1] 0.07617854
+## [1] 0.09395656
 ```
 
 About 7.2 percent. We also know that these missing values come in long
@@ -175,14 +175,14 @@ kable(anova(fit1))
 
 
 
-|             |    Df|     Sum Sq|      Mean Sq|    F value| Pr(>F)|
-|:------------|-----:|----------:|------------:|----------:|------:|
-|year         |     6|   32406.22|  5401.036233|  1815.7114|      0|
-|month        |    11|   10716.11|   974.191986|   327.5022|      0|
-|weekday      |     6|   78694.98| 13115.829871|  4409.2579|      0|
-|hour         |    23| 1731382.49| 75277.499725| 25306.6647|      0|
-|weekday:hour |   138|   71755.89|   519.970207|   174.8027|      0|
-|Residuals    | 50688|  150777.12|     2.974612|         NA|     NA|
+|             |    Df|      Sum Sq|      Mean Sq|    F value| Pr(>F)|
+|:------------|-----:|-----------:|------------:|----------:|------:|
+|year         |     6|   17198.089|  2866.348125|  1308.3791|      0|
+|month        |    11|    3979.025|   361.729575|   165.1158|      0|
+|weekday      |     6|   75909.038| 12651.506328|  5774.9323|      0|
+|hour         |    23| 1667341.838| 72493.123404| 33090.3583|      0|
+|weekday:hour |   138|   69242.564|   501.757713|   229.0333|      0|
+|Residuals    | 49709|  108900.624|     2.190763|         NA|     NA|
 
 ```r
 sr1$predicted = predict(fit1, sr1)
@@ -238,3 +238,79 @@ pacf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
 ![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-2.png) 
 
 Looks like there's lots here for further analysis.
+
+Is there missing data in addition to the 0 values?
+
+
+```r
+delta = diff(sr1$time)
+summary(as.numeric(delta))
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##       0    3600    3600    3693    3600 2246000
+```
+
+```r
+# Missing in days
+as.numeric(max(delta, na.rm=TRUE)) / (60 * 60 * 24)
+```
+
+```
+## [1] 26
+```
+
+```r
+sum(delta > 4000, na.rm=TRUE)
+```
+
+```
+## [1] 25
+```
+
+```r
+table(as.numeric(delta[delta > 4000]))
+```
+
+```
+## 
+##    7200   10800   14400   18000   86400   90000   97200  111600  169200 
+##       7       3       1       1       2       1       1       1       1 
+##  176400  244800  273600  291600  327600  907200 2246400 
+##       1       1       1       1       1       1       1
+```
+
+Only 25 of 50,000 observations are not on the hour. That's encouraging.
+
+Here's a plot that shows the true missing values.
+
+
+```r
+# All times under consideration:
+alltimes = seq(from=min(sr1$time), to=max(sr1$time), by=delta[1])
+notthere = !(alltimes %in% sr1$time)
+plot(alltimes[notthere], rep(1, sum(notthere)))
+```
+
+![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-1.png) 
+
+
+```r
+sr1$time[which.max(delta)]
+```
+
+```
+## [1] "2012-10-06 PDT"
+```
+
+```r
+a = as.POSIXct('2012-10-01')
+b = as.POSIXct('2012-12-01')
+ab = (a < sr1$time) & (sr1$time < b)
+with(sr1[ab, ], plot(time, rep(1, length(time))))
+```
+
+![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-1.png) 
+
+Surprising that this didn't show up more promininetly on the main plot.
