@@ -23,7 +23,7 @@ I find it hard to believe that there were ever any hours when the Bay
 Bridge was open without traffic.
 
 ```{r}
-with(bb[1:1000, ], plot(time, count))
+with(bb, plot(time, count))
 ```
 
 Now this looks totally ridiculous. There's lots of missing data and the
@@ -117,4 +117,32 @@ zsm = rle(sm$count == 0)
 max(zsm$lengths)
 hist(zsm$lengths[zsm$lengths < 10])
 ```
+
+Let's look at aggregated counts:
+
+```{r}
+# This is an expensive operation
+totals = tapply(fastrak$count, fastrak$time, sum)
+tot = data.frame(total = totals, time = as.POSIXct(names(totals)))
+sapply(tot, class)
+```
+
+Plot it with some nice alpha transparency and a linear model.
+
+@final
+```{r}
+library(scales)
+tfit = lm(total ~ time, tot)
+png('totals.png')
+with(tot, plot(time, total, col=alpha('black', 0.1)))
+abline(tfit, col='blue', lwd=2)
+dev.off()
+```
+
+A linear model.
+
+```{r}
+summary(tfit)
+```
+
 
