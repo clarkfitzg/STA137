@@ -143,8 +143,8 @@ sr1$residuals = sqrt(sr1$count) - sr1$predicted
 Take a look at the residuals.
 
 ```{r}
-a = as.POSIXct('2011-03-10')
-b = as.POSIXct('2011-03-30')
+a = as.POSIXct('2011-03-17')
+b = as.POSIXct('2011-03-18')
 ab = (a < sr1$time) & (sr1$time < b)
 with(sr1[ab, ], plot(time, residuals, type='l'))
 ```

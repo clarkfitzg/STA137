@@ -139,6 +139,23 @@ abline(tfit, col='blue', lwd=2)
 dev.off()
 ```
 
+So where was that period in 2010 when everything is too big?
+
+@final
+```{r}
+
+a = as.POSIXct('2010-06-10')
+b = as.POSIXct('2010-08-20')
+ab = (a < tot$time) & (tot$time < b)
+with(tot[ab, ], plot(time, total, col=alpha('black', 0.5)))
+
+# Lines marking the cutoff dates
+startbig = as.POSIXct('2010-06-23')
+endbig = as.POSIXct('2010-08-04')
+abline(v=c(startbig, endbig), lwd=2)
+```
+
+
 A linear model.
 
 ```{r}
