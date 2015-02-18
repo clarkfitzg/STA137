@@ -2,6 +2,22 @@ library(RUnit)
 
 runtests = TRUE
 
+preclean = function(fastrak){
+    # Perform all precleaning steps on the fastrak data
+
+    # The zeros are most likely not valid readings.
+    fastrak = fastrak[fastrak$count != 0, ]
+
+    # The date range where the counts inexplicably doubled.
+    a = as.POSIXct('2010-06-23')
+    b = as.POSIXct('2010-08-04')
+    toobig = with(fastrak, (a < time) & (time < b))
+
+    fastrak = fastrak[!toobig, ]
+
+    return(fastrak)
+}
+
 longrun = function(x, runtype, k){
     # Determine whether runtype in x occurs in a run of at least k.
     # Returns a logical vector which is TRUE if the corresponding 

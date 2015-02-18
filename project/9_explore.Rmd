@@ -1,0 +1,13 @@
+```{r}
+load('fastrak.Rda')
+source('functions.R')
+
+fastrak = preclean(fastrak)
+```
+
+What is the longest run of good data that we have at any of the stations?
+
+```{r}
+
+```
+
