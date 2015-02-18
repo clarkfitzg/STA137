@@ -8,6 +8,33 @@ fastrak = preclean(fastrak)
 What is the longest run of good data that we have at any of the stations?
 
 ```{r}
+sr = getstation(4300, fastrak)
 
+findmaxrun = function(times){
+    dates = sort(times)
+    datediff = diff(dates)
+    r = rle(as.numeric(datediff))$lengths
+    max(r)
+}
+
+findmaxrun(sr$time)
 ```
 
+```{r}
+maxruns = tapply(fastrak$time, fastrak$station, findmaxrun)
+```
+
+```{r}
+max(maxruns, na.rm=TRUE)
+
+hist(maxruns)
+```
+
+Still 3056. How many days / months is that?
+
+```{r}
+3056 / (30 * 24)
+```
+
+About 4 months. So not that bad. Maybe after we do the filtering for
+outliers in the ANOVA we can find the best of these.
