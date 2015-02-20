@@ -1,0 +1,67 @@
+Using some new model data
+
+```{r}
+load('fit4.Rda')
+source('functions.R')
+```
+
+This looks better than the other transformation.
+
+```{r}
+hist(fastrak$residuals)
+```
+
+We don't trust the abnormally low residuals because it seems that the
+sensor cut off at that time.
+Let's filter down to just the ones that aren't suspicious.
+We'll do this by cutting off the bottom 1 percent.
+
+```{r}
+cutoff = quantile(fastrak$residuals, 0.01)
+
+f2 = fastrak[(fastrak$residuals > cutoff) & (fastrak$residuals < -cutoff), ]
+dim(f2)
+
+hist(f2$residuals)
+```
+
+What is the longest run of good data that we have at any of the stations?
+
+```{r}
+sr = getstation(4300, f2)
+
+findmaxrun = function(times){
+    dates = sort(times)
+    datediff = diff(dates)
+    r = rle(as.numeric(datediff))$lengths
+    max(r)
+}
+
+findmaxrun(sr$time)
+```
+
+```{r}
+maxruns = with(f2, tapply(time, station, findmaxrun))
+```
+
+```{r}
+max(maxruns, na.rm=TRUE)
+
+hist(maxruns)
+```
+
+
+```{r}
+sr = getstation(4300, f2)
+diffsr = diff(sr$time)
+islong = longrun(diffsr, 1, 3000)
+
+santarosa = sr[islong, ]
+save(santarosa, file='santarosa.Rda')
+```
+
+```{r}
+dim(santarosa)
+hist(santarosa$residuals - mean(santarosa$residuals))
+hist(santarosa$residuals)
+```

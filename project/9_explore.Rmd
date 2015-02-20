@@ -38,3 +38,9 @@ Still 3056. How many days / months is that?
 
 About 4 months. So not that bad. Maybe after we do the filtering for
 outliers in the ANOVA we can find the best of these.
+
+
+```{r}
+
+```
+
