@@ -1,0 +1,170 @@
+```{r}
+library(xts)
+library(MASS)
+```
+
+```{r}
+source('functions.R')
+load('fastrak.Rda')
+fastrak = preclean(fastrak)
+```
+
+Focusing on a particular time series now.
+
+Problem- the large model was not fully removing the seasonality and trend.
+We'll address this by fitting an individual model to this station.
+
+```{r}
+santarosa = getstation(4300, fastrak)
+```
+
+```{r}
+srfit = lm(count^(1/3) ~ year + month + weekday*hour, santarosa)
+```
+
+This is quite fast. I'm pleased.
+
+```{r}
+s = summary(srfit)
+s$adj.r.squared
+a = anova(srfit)
+a
+a['hour', 'Sum Sq'] / sum(a[, 'Sum Sq'])
+```
+
+This simple model explains the data well.
+Almost all of the variation is due to the main effect of hour.
+But the residuals have some serious problems.
+
+```{r}
+plot.lm(srfit, which=2)
+```
+
+```{r}
+hist(residuals(srfit))
+```
+
+We suspect that this is due to sensor error. Let's trim the bottom 1% and
+refit the model.
+
+```{r}
+cutoff = quantile(residuals(srfit), 0.01)
+sr2 = santarosa[residuals(srfit) > cutoff, ]
+dim(sr2)
+```
+
+```{r}
+fit2 = lm(count^(1/3) ~ year + month + weekday*hour, sr2)
+sr2$residuals = residuals(fit2)
+```
+
+```{r}
+a2 = anova(fit2)
+s2 = summary(fit2)
+s2$adj.r.squared
+```
+
+# TODO
+Need help interpreting this plot- is there any way to improve?
+```{r}
+plot.lm(fit2, which=2)
+```
+
+Still god-awful looking residuals on the qqplot. 
+It's mostly symmetric now, but the tails are too heavy.
+So we can't make inferences on this.
+
+```{r}
+hist(residuals(fit2))
+```
+
+Lets try the box cox method to find the proper transformation.
+
+```{r}
+fit3 = lm(count ~ year + month + weekday*hour, sr2)
+
+boxcox(fit3)
+```
+
+This points directly to the cube root transform that we've been using.
+
+```{r}
+diffsr = diff(sr2$time)
+islong = longrun(diffsr, 1, 1000)
+
+santarosa = sr2[islong, ]
+dim(santarosa)
+#save(santarosa, file='santarosa.Rda')
+```
+
+Kind of interesting- we now have 6 periods where there are between 1000 and
+1500 consecutive quality observations. An interesting analysis would be to
+look at the ACF / PACF plots of each.
+
+Make sure it's looking reasonable.
+
+
+```{r}
+diffsr = diff(sr2$time)
+islong = longrun(diffsr, 1, 1400)
+
+santarosa = sr2[islong, ]
+dim(santarosa)
+```
+
+```{r}
+with(santarosa[1000:1479, ], plot(time, residuals, type='l'))
+```
+
+These don't look too bad at all. What kind of ACF / PACF can we see?
+
+```{r}
+acf(santarosa$residuals)
+pacf(santarosa$residuals)
+```
+
+Clearly point to an AR(1), and possibly with an AR(24) term.
+Let's try some AIC model selection to fit.
+
+```{r}
+res = santarosa$residuals
+plot(res, type='l')
+mean(res)
+```
+
+We see some spikes where the model way underpredicted. Maybe this was a
+special event.
+
+```{r}
+ar1 = ar(res, order.max=24)
+ar1$aic
+ar2 = ar(res)
+ar2$aic
+```
+
+The default model selection is choosing 31 terms in the AR model.
+Interesting. What about an ARMA model?
+
+```{r}
+arma1 = arima(res, order=c(2, 0, 2))
+arma1$aic
+arima(res, order=c(1, 0, 1))$aic
+arima(res, order=c(1, 0, 2))$aic
+arima(res, order=c(2, 0, 1))$aic
+arima(res, order=c(2, 0, 2))$aic
+arima(res, order=c(3, 0, 1))$aic 
+arima(res, order=c(2, 0, 3))$aic # Best
+arima(res, order=c(1, 0, 3))$aic
+arima(res, order=c(3, 0, 3))$aic
+
+# Not converging:
+arima(res, order=c(4, 0, 4))$aic
+arima(res, order=c(4, 0, 3))$aic
+arima(res, order=c(3, 0, 4))$aic
+```
+
+```{r}
+arma = arima(res, order=c(2, 0, 3))
+arma$coef
+```
+

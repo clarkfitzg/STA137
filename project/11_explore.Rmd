@@ -1,0 +1,44 @@
+```{r}
+library(xts)
+```
+
+```{r}
+source('functions.R')
+load('fastrak.Rda')
+```
+
+Focusing on a particular time series now.
+
+We expect that the first one is too low because of a sensor failure.
+Drop it.
+
+```{r}
+load('santarosa.Rda')
+sr = santarosa[-1, ]
+
+res = with(santarosa, xts(residuals, order.by=time))
+
+head(res)
+```
+
+
+```{r}
+plot(sr$
+```
+
+```{r}
+acf(sr$residuals)
+acf(res)
+```
+
+```{r}
+srfit = aov(count^(1/3) ~ month + weekday*hour, sr)
+smallres = residuals(srfit)
+plot(sr$time[1:400], smallres[1:400], type='l')
+```
+
+```{r}
+acf(smallres)
+pacf(smallres)
+```
+
