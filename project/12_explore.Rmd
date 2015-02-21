@@ -91,11 +91,14 @@ This points directly to the cube root transform that we've been using.
 ```{r}
 diffsr = diff(sr2$time)
 islong = longrun(diffsr, 1, 1000)
+long = rle(islong)
 
 santarosa = sr2[islong, ]
 dim(santarosa)
 #save(santarosa, file='santarosa.Rda')
 ```
+
+@ Oliver- you can do this:
 
 Kind of interesting- we now have 6 periods where there are between 1000 and
 1500 consecutive quality observations. An interesting analysis would be to
