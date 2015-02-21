@@ -1,6 +1,4 @@
-library(RUnit)
-
-runtests = TRUE
+runtests = FALSE
 
 preclean = function(fastrak){
     # Perform all precleaning steps on the fastrak data
@@ -57,6 +55,8 @@ timeparts = function(dframe){
 # Test suite
 
 if (runtests){
+    library(RUnit)
+
     # longrun
     x1 = c(rep(0, 5), 1, rep(0, 4))
     checkEquals(longrun(x1, 0, 5), c(rep(TRUE, 5), rep(FALSE, 5)))
