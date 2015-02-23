@@ -1,4 +1,4 @@
-runtests = FALSE
+runtests = TRUE
 
 preclean = function(fastrak){
     # Perform all precleaning steps on the fastrak data
@@ -43,10 +43,17 @@ makealldates = function(dframe, by='hour'){
     # All columns other than date are filled in with NA.
 }
 
-timeparts = function(dframe){
+addtimeparts = function(dframe){
     # Given a data frame that has a column `time`, this function
-    # returns a data frame including 
+    # returns a data frame including factors for
     # year, month, dayofweek, hour
+    out = dframe
+    tm = out$time
+    out$year = as.factor(format(tm, '%Y'))
+    out$month = as.factor(months(tm))
+    out$weekday = as.factor(weekdays(tm))
+    out$hour = as.factor(format(tm, '%H'))
+    out
 }
 
 
@@ -57,15 +64,23 @@ timeparts = function(dframe){
 if (runtests){
     library(RUnit)
 
+
     # longrun
     x1 = c(rep(0, 5), 1, rep(0, 4))
     checkEquals(longrun(x1, 0, 5), c(rep(TRUE, 5), rep(FALSE, 5)))
     xwithNA = c(rep(NA, 5), 1, rep(NA, 4))
     checkEquals(longrun(xwithNA, NA, 5), c(rep(TRUE, 5), rep(FALSE, 5)))
 
-    # makealldates
-    small = data.frame(time=as.POSIXct('2000-01-01'))
+    # addtimeparts
+    smalltime = data.frame(time=as.POSIXct('2000-01-01'))
+    expected_addtime = data.frame(time=smalltime$time, year=as.factor(2000)
+                                  , month=as.factor('January')
+                                  , weekday=as.factor('Saturday')
+                                  , hour=as.factor('00')
+                                  )
+    checkEquals(expected_addtime, addtimeparts(smalltime))
 
+    # getstation
     alldata = data.frame(station = c(1, 1, 2), time = c(2, 1, 1))
     s1 = getstation(1, alldata)
     s1expected = data.frame(station = c(1, 1), time = c(1, 2))

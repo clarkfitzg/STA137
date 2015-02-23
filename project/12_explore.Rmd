@@ -64,6 +64,50 @@ s2 = summary(fit2)
 s2$adj.r.squared
 ```
 
+Question- does the model just pick out the mean values for each cell?
+No. At least not in the simple way I was first thinking.
+Let's try on a single cell.
+
+```{r}
+# a single row
+r = sr2[12345, ]
+r
+
+condition = with(sr2, (year == r$year) & (month == r$month) & 
+                 (weekday == r$weekday) & (hour == r$hour))
+
+mean((sr2$count^(1/3))[condition])
+predict(fit2, r)
+```
+
+This is too granular. I believe it represents the model with
+`year*month*weekday*hour`. Which is too flexible for what we wanted- there
+are about 4 observations per cell.
+
+Let's reconstruct what the ANOVA model actually does:
+
+```{r}
+y = sr2$count^(1/3)
+ybar = mean(y)
+xyear = mean(y[sr2$year == r$year])
+
+-0.0659544
+```
+
+No this isn't right. I need to use sum contrasts to understand it in this
+way.
+
+
+This part isn't yet working:
+```{r}
+cellmeans = with(sr2, tapply(count^(1/3), list(year, month, weekday, hour)
+        , FUN=mean, simplify=FALSE))
+dim(cellmeans)
+class(cellmeans)
+hist(cellmeans)
+```
+
+
 # TODO
 Need help interpreting this plot- is there any way to improve?
 ```{r}
@@ -75,8 +119,14 @@ It's mostly symmetric now, but the tails are too heavy.
 So we can't make inferences on this.
 
 ```{r}
-hist(residuals(fit2))
+hist(scale(residuals(fit2)))
 ```
+
+A corresponding normal:
+```{r}
+hist(rnorm(nrow(sr2)))
+```
+
 
 Lets try the box cox method to find the proper transformation.
 
