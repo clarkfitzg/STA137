@@ -14,6 +14,7 @@ fit6 = biglm(count^(1/3) ~ month + weekday*hour + station + station:weekday + st
         data=fastrak[1:chunksize, ])
 
 for (i in 2:floor(nrow(fastrak) / chunksize)){
+    print(i)
     indices = 1:chunksize + (i - 1) * chunksize
     fit6 = update(fit6, fastrak[indices, ])
 }
