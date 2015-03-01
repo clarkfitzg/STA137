@@ -128,7 +128,7 @@ with(sr2, plot(time, res, col=alpha('black', 0.2)))
 
 We still observe the same effect, but it's not as bad. 
 
-## Time Series
+## Finding consecutive runs
 
 After this preparation we were ready to pick out the time series.
 We did this by finding all runs of consecutively spaced residuals that were
@@ -141,8 +141,60 @@ long = rle(islong)
 
 sr3 = sr2[islong, ]
 
+# TODO - this should be it's own tested function - this code is a bit
+# too hacky
+
+# Infer the time spaced groups
+a = rle(as.numeric(diff(sr3$time)))
+a$values = 1:((length(a$values) + 1) / 2)
+a$lengths = 1 + a$lengths[a$lengths != 1]
+sr3$group = inverse.rle(a)
+
+# We can add the fitted values in for further analysis
+# Exponentiating since we fitted the cube root
+sr3$fitted = predict(fit2, sr3) ** 3
+
 dim(sr3)
 
-with(sr3, plot(time, res))
+with(sr3, plot(time, res, col=alpha('black', 0.2)))
+```
+
+## Common sense check
+
+We'll first focus on the third
+group. For ease of further analysis we'll center and scale the data, and
+call the resulting vector $X$.
+
+```{r}
+sr33 = sr3[sr3$group == 3, ]
+sr33$X = scale(sr33$res)
+X = sr33$X
+
+with(sr33, plot(time, X))
+```
+
+Let's make sure that the fitting worked using a week's worth of data.
+
+```{r}
+small = 600:750
+with(sr33[small, ], plot(time, count, lwd=1.5, type='l'))
+with(sr33[small, ], lines(time, fitted, lty=2, col='red'))
+```
+
+The fitted values look as expected.
+
+Here are the corresponding residuals.
+
+```{r}
+with(sr33[small, ], plot(time, X, type='l'))
+```
+
+## Time Series
+
+We now can begin the time series analysis. 
+
+```{r}
+acf(X)
+pacf(X)
 ```
 
