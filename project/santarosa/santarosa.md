@@ -4,7 +4,8 @@ Fastrak is the California highway toll system.
 The cars that drive through the toll have been counted.
 We've downloaded the data for hourly counts from each Fastrak stations for
 the past 7 years. There are about 8 million rows.
-We examine the time series for station 4300, Santa Rosa, because it looks
+We examine the time series for station 4300, Santa Rosa, because it is
+among the most consistent.
 to be more consistent than the others.
 
 
@@ -13,11 +14,11 @@ to be more consistent than the others.
 # To produce the report
 library(knitr)
 
+# Box cox transformation
+library(MASS)
+
 # semitransparent plotting with alpha
 library(scales)
-
-# ANOVA model
-library(lme4)
 
 # tested helper functions
 source('../functions.R')
@@ -27,6 +28,21 @@ load('../fastrak.Rda')
 ```
 
 ## Preparation
+
+Significant time was spent preparing this data. 
+There were three major issues:
+
+- Missing data
+- Too many zeros 
+- A month long period where the traffic was double what it should have been
+  across all stations
+
+Since we have plenty of data we dropped all of these suspicious points. 
+It would be certainly be possible to interpolate or backcast to fill in the
+missing data as well.
+
+We dealt with this by writing a small library of tested functions to
+prepare the data in a disciplined, repeatable way.
 
 Here is the data of interest.
 
@@ -39,278 +55,454 @@ kable(head(sr1))
 
 
 
-|    |time                |station | count|year |month |weekday |hour |  residuals|
-|:---|:-------------------|:-------|-----:|:----|:-----|:-------|:----|----------:|
-|25  |2007-03-23 03:00:00 |4300    |    32|2007 |March |Friday  |03   | -2.4031615|
-|170 |2007-03-23 04:00:00 |4300    |    35|2007 |March |Friday  |04   | -2.9898080|
-|315 |2007-03-23 05:00:00 |4300    |   103|2007 |March |Friday  |05   | -1.5040558|
-|460 |2007-03-23 06:00:00 |4300    |   231|2007 |March |Friday  |06   | -0.7732094|
-|605 |2007-03-23 07:00:00 |4300    |   357|2007 |March |Friday  |07   | -0.8023823|
-|750 |2007-03-23 08:00:00 |4300    |   411|2007 |March |Friday  |08   | -1.5260884|
+|    |time                |station | count|year |month |weekday |hour |
+|:---|:-------------------|:-------|-----:|:----|:-----|:-------|:----|
+|25  |2007-03-23 03:00:00 |4300    |    32|2007 |March |Friday  |03   |
+|170 |2007-03-23 04:00:00 |4300    |    35|2007 |March |Friday  |04   |
+|315 |2007-03-23 05:00:00 |4300    |   103|2007 |March |Friday  |05   |
+|460 |2007-03-23 06:00:00 |4300    |   231|2007 |March |Friday  |06   |
+|605 |2007-03-23 07:00:00 |4300    |   357|2007 |March |Friday  |07   |
+|750 |2007-03-23 08:00:00 |4300    |   411|2007 |March |Friday  |08   |
 
 ```r
 with(sr1, plot(time, count, col=alpha('black', 0.1)))
+
+fit0 = lm(count ~ poly(time, 3), sr1)
+lines(sr1$time, predict(fit0), lwd=4, col='blue')
 ```
 
 ![plot of chunk unnamed-chunk-2](figure/unnamed-chunk-2-1.png) 
 
-We observe a couple problems. In the 150 stations all the data shows the 
-pattern of having nearly double the count in July of 2010. Additionally we
-have missing data encoded as 0's.
+## Trend and Seasonality
 
-3 or more zeros means that the no cars drove by for at least a 3 hour 
-period. This is extremely unlikely if the toll was operational.
+We used a linear model in two ways: first to identify more outlying points
+where the sensor was only partially active, and second to estimate then
+remove the trend and seasonality.
 
-We can fix this by identifying the runs of 3 or more zeros and changing the
-corresponding counts to NA. When we did this we saw huge negative
-residuals when models were fitted. The more conservative thing to do is
-transform all the zeros to NA.
+A cubic polynomial was chosen to represent the long term trend because of
+we wanted smoothness and given the small magnitude of the trend we felt
+that we could do without the complexity of splines. Piecewise linear by
+year would have been acceptable as well.
+
+$$
+    count = time^3 + month + weekday + hour + weekday:hour + \epsilon
+$$
+
+This removes long term trend and seasonality at 3 levels: month, weekday, and
+hour.
+
+## Variance stabilizing transform
+
+The box cox method indicated using the cube root function on the counts as
+a variance stabilizing transformation.
 
 
 ```r
-sr1$count[sr1$count == 0] = NA
+boxcox(lm(count ~ poly(time, 3) + month + weekday*hour, sr1))
 ```
 
+![plot of chunk unnamed-chunk-3](figure/unnamed-chunk-3-1.png) 
 
 ```r
-# Didn't really work:
-## Before:
-#sum(is.na(sr1$count))
-#
-## Using custom function
-#zr1 = zerorun(sr1$count, 3)
-#
-#sr1$count[zr1] = NA
-#
-## After:
-#sum(is.na(sr1$count))
+# Model formula for subsequent use
+f = count^(1/3) ~ poly(time, 3) + month + weekday*hour
 ```
 
-So this eliminates about 4000 points.
+## Outlier detection and removal
 
-Now we'll visually identify where the abnormally large period in July 2010
-begins and ends, and then code it as NA.
+We used a linear model to further identify data points where the sensor may
+have stopped working. 
 
 
 ```r
-a = as.POSIXct('2010-06-10')
-b = as.POSIXct('2010-08-20')
-ab = (a < sr1$time) & (sr1$time < b)
-with(sr1[ab, ], plot(time, count, col=alpha('black', 0.5)))
+fit1 = lm(f, sr1)
+```
 
-# Lines marking the cutoff dates
-startbig = as.POSIXct('2010-06-23')
-endbig = as.POSIXct('2010-08-04')
-abline(v=c(startbig, endbig), lwd=2)
+We do this by removing the lowest 1% of residuals. 
+Before removing bottom 1% of residuals we see excessively many large
+negative residuals. We suspect this is due to sensor failure.
+
+
+```r
+res1 = residuals(fit1)
+plot(sr1$time, res1, col=alpha('black', 0.1))
 ```
 
 ![plot of chunk unnamed-chunk-5](figure/unnamed-chunk-5-1.png) 
 
-```r
-# Transform to NA's
-toobig = (startbig < sr1$time) & (sr1$time < endbig)
-sr1$count[toobig] = NA
-```
-
-Let's inspect the data to see the effect of the cleaning.
+For symmetry we used this same threshold on the top of the residuals as well.
 
 
 ```r
-with(sr1, plot(time, count, col=alpha('black', 0.1)))
+cutoff = quantile(res1, 0.01)
+cutoff
 ```
 
-![plot of chunk unnamed-chunk-6](figure/unnamed-chunk-6-1.png) 
+```
+##        1% 
+## -1.709734
+```
 
-This looks much more reasonable.
+```r
+sr2 = sr1[(res1 > cutoff) & (res1 < -cutoff), ]
+dim(sr2)
+```
 
-How much of the data is now missing?
+```
+## [1] 49390     7
+```
+
+This operation cut about 500 from the bottom and 5 from the top.
+
+After trimming outliers:
 
 
 ```r
-sum(is.na(sr1$count) / length(sr1$count))
+fit2 = lm(f, sr2)
 ```
-
-```
-## [1] 0.09395656
-```
-
-About 7.2 percent. We also know that these missing values come in long
-runs. Exactly how large are the largest runs?
 
 
 ```r
-narun = rle(is.na(sr1$count))
-max(narun$length[!narun$values])
+sr2$res = residuals(fit2)
+with(sr2, plot(time, res, col=alpha('black', 0.2)))
 ```
 
-```
-## [1] 3885
-```
+![plot of chunk unnamed-chunk-8](figure/unnamed-chunk-8-1.png) 
 
-So we have a run of nearly 4000. We can work with that. We also need to
-make sure that the hourly observations are complete. Let's visualize to see
-where these are.
+We still observe the same effect, but it's not as bad. 
 
+## Finding consecutive runs
 
-
-
-## Trend and Seasonality
-
-Now that the suspicious data has been recoded to NA we are in a position to
-remove the trend and seasonality. We'll do it through estimation of the
-mean using the following ANOVA model:
-
-$$
-    \sqrt(count) = year + month + weekday + hour + weekday:hour + \epsilon
-$$
-
-This removes yearly trend and seasonality at 3 levels: month, weekday, and
-hour.
+After this preparation we were ready to pick out the time series.
+We did this by finding all runs of consecutively spaced residuals that were
+longer than 1000 on the filtered data. There are 5 such groups.
 
 
 ```r
-fit1 = lm(sqrt(count) ~ year + month + weekday*hour, sr1)
-kable(anova(fit1))
+diffsr = diff(sr2$time)
+islong = longrun(diffsr, 1, 1000)
+long = rle(islong)
+
+sr3 = sr2[islong, ]
+
+# TODO - this should be it's own tested function - this code is a bit
+# too hacky
+
+# Infer the time spaced groups
+a = rle(as.numeric(diff(sr3$time)))
+a$values = 1:((length(a$values) + 1) / 2)
+a$lengths = 1 + a$lengths[a$lengths != 1]
+sr3$group = inverse.rle(a)
+
+# We can add the fitted values in for further analysis
+# Exponentiating since we fitted the cube root
+sr3$fitted = predict(fit2, sr3) ** 3
+
+dim(sr3)
 ```
 
-
-
-|             |    Df|      Sum Sq|      Mean Sq|    F value| Pr(>F)|
-|:------------|-----:|-----------:|------------:|----------:|------:|
-|year         |     6|   17198.089|  2866.348125|  1308.3791|      0|
-|month        |    11|    3979.025|   361.729575|   165.1158|      0|
-|weekday      |     6|   75909.038| 12651.506328|  5774.9323|      0|
-|hour         |    23| 1667341.838| 72493.123404| 33090.3583|      0|
-|weekday:hour |   138|   69242.564|   501.757713|   229.0333|      0|
-|Residuals    | 49709|  108900.624|     2.190763|         NA|     NA|
-
-```r
-sr1$predicted = predict(fit1, sr1)
-sr1$residuals = sqrt(sr1$count) - sr1$predicted
+```
+## [1] 6228   10
 ```
 
-Take a look at the residuals.
+```r
+with(sr3, plot(time, res, col=alpha('black', 0.2)))
+```
+
+![plot of chunk unnamed-chunk-9](figure/unnamed-chunk-9-1.png) 
+
+```r
+save(sr3, file='cleaned.Rda')
+```
+
+## Common sense check
+
+We'll first focus on the third
+group. For ease of further analysis we'll center and scale the data, and
+call the resulting vector $X$.
 
 
 ```r
-a = as.POSIXct('2011-03-10')
-b = as.POSIXct('2011-03-30')
-ab = (a < sr1$time) & (sr1$time < b)
-with(sr1[ab, ], plot(time, residuals, type='l'))
+sr33 = sr3[sr3$group == 3, ]
+sr33$X = scale(sr33$res)
+X = sr33$X
+
+with(sr33, plot(time, X))
+```
+
+![plot of chunk unnamed-chunk-10](figure/unnamed-chunk-10-1.png) 
+
+Let's make sure that the fitting worked using a week's worth of data.
+
+
+```r
+small = 600:750
+with(sr33[small, ], plot(time, count, lwd=1.5, type='l'))
+with(sr33[small, ], lines(time, fitted, lty=2, col='red'))
 ```
 
 ![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png) 
 
-We get some huge negative numbers. I'll bet that's because March 17th had a
-zero for an NA value which was not removed. So we probably need to remove
-all the zeros!
+The fitted values look as expected.
 
-Still see a bunch of unusually low values when all zeros are removed. My
-suspicion is that the sensor stopped working for a short period of time.
-Then picked back up again. So what we actually need to do is code as NA all
-those points that are on the border of the zeros as well. Because the
-sensor wasn't totally functioning at that hour.
+Here are the corresponding residuals.
 
 
 ```r
-with(sr1, plot(time, residuals, col=alpha('black', 0.1)))
-abline(h=0, col='yellow', lwd=2)
+with(sr33[small, ], plot(time, X, type='l'))
 ```
 
 ![plot of chunk unnamed-chunk-12](figure/unnamed-chunk-12-1.png) 
 
-Looks like icicles hanging off the data centered around 0.
+## Time Series
 
-Let's see if we get anything reasonable from the ACF. The data isn't
-exactly equi-spaced, but it's not too far off either.
+We now can begin the time series analysis. 
 
 
 ```r
-acf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
+acf(X)
 ```
 
 ![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-1.png) 
 
 ```r
-pacf(sr1$residuals[(sr1$year == 2011) & !(is.na(sr1$residuals))])
+pacf(X)
 ```
 
 ![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-2.png) 
 
-Looks like there's lots here for further analysis.
-
-Is there missing data in addition to the 0 values?
+We'll search over a grid to find the best ARMA model as determined by AIC.
 
 
 ```r
-delta = diff(sr1$time)
-summary(as.numeric(delta))
+# Parameters to search over:
+#ap = expand.grid(ar=3:6, ma=3:6)
+ap = expand.grid(ar=1:3, ma=1:3)
+getaic = function(ar, ma, x=X){
+    arima(x, order=c(ar, 0, ma), optim.control=list(maxit=1000))$aic
+}
+aicvals = mapply(getaic, ap$ar, ap$ma)
+plot(aicvals)
 ```
 
-```
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##       0    3600    3600    3693    3600 2246000
-```
+![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-1.png) 
 
-```r
-# Missing in days
-as.numeric(max(delta, na.rm=TRUE)) / (60 * 60 * 24)
-```
-
-```
-## [1] 26
-```
-
-```r
-sum(delta > 4000, na.rm=TRUE)
-```
-
-```
-## [1] 25
-```
-
-```r
-table(as.numeric(delta[delta > 4000]))
-```
-
-```
-## 
-##    7200   10800   14400   18000   86400   90000   97200  111600  169200 
-##       7       3       1       1       2       1       1       1       1 
-##  176400  244800  273600  291600  327600  907200 2246400 
-##       1       1       1       1       1       1       1
-```
-
-Only 25 of 50,000 observations are not on the hour. That's encouraging.
-
-Here's a plot that shows the true missing values.
+Note- we needed to extend the maximum number of iterations in order to
+compute accurate AIC values for the larger models.
+Surprising how fast this becomes computationally expensive.
 
 
 ```r
-# All times under consideration:
-alltimes = seq(from=min(sr1$time), to=max(sr1$time), by=delta[1])
-notthere = !(alltimes %in% sr1$time)
-plot(alltimes[notthere], rep(1, sum(notthere)))
-```
-
-![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-1.png) 
-
-
-```r
-sr1$time[which.max(delta)]
+ap[which.min(aicvals), ]
 ```
 
 ```
-## [1] "2012-10-06 PDT"
+##   ar ma
+## 9  3  3
 ```
 
 ```r
-a = as.POSIXct('2012-10-01')
-b = as.POSIXct('2012-12-01')
-ab = (a < sr1$time) & (sr1$time < b)
-with(sr1[ab, ], plot(time, rep(1, length(time))))
+arma1 = arima(X, order=c(6, 0, 6), optim.control=list(maxit=1000))
+arma1$aic
+```
+
+```
+## [1] 3776.972
+```
+
+The AIC criteria chooses an ARMA(6, 6) model.
+
+Check if the residuals resemble white noise.
+
+
+```r
+acf(residuals(arma1))
 ```
 
 ![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-1.png) 
 
-Surprising that this didn't show up more promininetly on the main plot.
+```r
+pacf(residuals(arma1))
+```
+
+![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-2.png) 
+
+We still see spikes at 24. These make sense because they represent the
+following day. Let's compare this with a larger AR model.
+
+
+```r
+ar1 = ar(X, method='yw', order.max=35)
+ar1$order
+```
+
+```
+## [1] 32
+```
+
+Yule-Walker is the default.
+We'll bump the maximum order from 31 up to 35.
+
+The AR model chose an AR(32) model based on AIC. Let's see how these
+residuals look.
+
+
+```r
+r1 = na.omit(ar1$resid)
+acf(r1)
+```
+
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-1.png) 
+
+```r
+pacf(r1)
+```
+
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-2.png) 
+
+They look more like white noise than the ARMA(6, 6) model.
+I wonder if the fit looks any different with
+other algorithms? The default uses Yule-Walker, but there's also MLE and
+OLS to try.
+
+
+```r
+ar2 = ar(X, order.max=35, method='ols', intercept=FALSE)
+ar2$order
+```
+
+```
+## [1] 32
+```
+
+```r
+r2 = na.omit(ar2$resid)
+acf(r2)
+```
+
+![plot of chunk unnamed-chunk-19](figure/unnamed-chunk-19-1.png) 
+
+```r
+pacf(r2)
+```
+
+![plot of chunk unnamed-chunk-19](figure/unnamed-chunk-19-2.png) 
+
+We don't need to fit an intercept because the data is centered.
+
+So OLS chose an AR(32) model. 
+
+
+```r
+ar3 = ar(X, order.max=35, method='burg', intercept=FALSE)
+ar3$order
+```
+
+```
+## [1] 32
+```
+
+```r
+r3 = na.omit(ar3$resid)
+acf(r3)
+```
+
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-1.png) 
+
+```r
+pacf(r3)
+```
+
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-2.png) 
+
+Surprising that the coefficients are all different. For example, we look at
+the first three:
+
+
+```r
+first4 = data.frame('yule-walker'=ar1$ar[1:4], 'ols'=ar2$ar[1:4],
+           'burg'=ar3$ar[1:4])
+first4
+```
+
+```
+##   yule.walker         ols        burg
+## 1 0.260738636 0.271636613 0.258953862
+## 2 0.085682152 0.072707064 0.085358004
+## 3 0.055885363 0.055592143 0.056362762
+## 4 0.005726957 0.008108437 0.006372378
+```
+
+## Prediction
+
+An hour ahead, a day ahead, or a week ahead.
+
+The adjusted $R^2$ for the ANOVA model is 0.972. We also observe that the
+residuals from this model do not exhibit any trend or seasonality.
+
+We conclude that the
+ANOVA fit adequately explains the smooth component.
+
+
+```r
+s = summary(fit2)
+s$adj.r.squared
+```
+
+```
+## [1] 0.9720136
+```
+
+```r
+kable(anova(fit2))
+```
+
+
+
+|              |    Df|      Sum Sq|    Mean Sq|    F value| Pr(>F)|
+|:-------------|-----:|-----------:|----------:|----------:|------:|
+|poly(time, 3) |     3|   1190.3224|  396.77415|  4435.2118|      0|
+|month         |    11|    384.0998|   34.91816|   390.3214|      0|
+|weekday       |     6|   5919.1845|  986.53076| 11027.6159|      0|
+|hour          |    23| 140376.6533| 6103.33275| 68224.1367|      0|
+|weekday:hour  |   138|   5601.9786|   40.59405|   453.7675|      0|
+|Residuals     | 49208|   4402.1488|    0.08946|         NA|     NA|
+
+To evaluate the performance on the rough part we'll use a fit on the first
+1000 data points in the series to predict the remaining 399.
+
+
+```r
+ar1000 = ar(X[1:1000], order.max=35)
+```
+
+This chooses the much simpler AR(4) model instead of the AR(32) models
+chosen previously.
+
+We predict the next 399.
+
+
+```r
+preds = predict(ar1000, n.ahead=399)$pred
+plot(preds)
+```
+
+![plot of chunk unnamed-chunk-24](figure/unnamed-chunk-24-1.png) 
+
+Lets examine the first 10 predictions compared with the actual values.
+
+
+```r
+plot(X[1000:1010], type='l')
+lines(preds[1:10])
+```
+
+![plot of chunk unnamed-chunk-25](figure/unnamed-chunk-25-1.png) 
+
+The predictions are very small relative to the size of the residuals.
+Conclusion- the ARMA model isn't doing much at all 
+
+Let's compare this with a larger model on data during a different time
+period.
+
+
