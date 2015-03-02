@@ -1,0 +1,32 @@
+Just for fun- here's the output of the top command when the server
+(gumbel.ucdavis.edu) is loaded with fitting a bunch of expensive ARMA
+models. Unlike fitting big linear models, these require almost no memory,
+but tons of CPU.
+
+
+Tasks: 654 total,  22 running, 632 sleeping,   0 stopped,   0 zombie
+Cpu(s):  0.0%us,  8.4%sy, 76.0%ni, 15.6%id,  0.0%wa,  0.0%hi,  0.0%si,  0.0%st
+Mem:  264504000k total, 29086008k used, 235417992k free,  1090400k buffers
+Swap: 54244348k total,  2861920k used, 51382428k free, 18836476k cached
+
+  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
+24364 clarkf    39  19  522m  59m 4264 R 106.1  0.0   2:42.80 R
+24124 clarkf    39  19  518m  42m 4240 R 101.5  0.0   1:36.70 R
+24156 clarkf    39  19  518m  58m 4264 R 101.5  0.0   3:28.40 R
+24172 clarkf    39  19  519m  42m 4264 R 101.5  0.0   3:10.30 R
+24188 clarkf    39  19  519m  59m 4276 R 101.5  0.0   2:23.58 R
+24204 clarkf    39  19  520m  59m 4272 R 101.5  0.0   3:52.92 R
+24268 clarkf    39  19  518m  56m 4240 R 101.5  0.0   2:58.50 R
+24332 clarkf    39  19  521m  40m 4276 R 101.5  0.0   0:28.08 R
+24380 clarkf    39  19  521m  47m 4276 R 101.5  0.0   0:50.24 R
+24412 clarkf    39  19  521m  61m 4264 R 101.5  0.0   1:26.36 R
+24140 clarkf    39  19  518m  52m 4264 R 96.9  0.0   2:44.49 R
+24220 clarkf    39  19  521m  40m 4264 R 96.9  0.0   4:20.63 R
+24236 clarkf    39  19  521m  58m 4268 R 96.9  0.0   6:33.64 R
+24252 clarkf    39  19  520m  56m 4264 R 96.9  0.0   2:27.72 R
+24284 clarkf    39  19  521m  42m 4276 R 96.9  0.0   1:28.94 R
+24300 clarkf    39  19  519m  42m 4280 R 96.9  0.0   1:35.48 R
+24316 clarkf    39  19  520m  43m 4264 R 96.9  0.0   1:52.51 R
+24348 clarkf    39  19  520m  41m 4264 R 96.9  0.0   2:16.13 R
+24396 clarkf    39  19  520m  44m 4264 R 96.9  0.0   1:31.39 R
+24428 clarkf    39  19  519m  58m 4264 R 87.6  0.0   2:10.32 R
