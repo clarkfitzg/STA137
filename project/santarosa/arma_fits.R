@@ -9,7 +9,7 @@ sr33$X = scale(sr33$res)
 X = sr33$X
 
 # ARMA Parameters to search over:
-ap = expand.grid(ar=0:35, ma=0:35)
+ap = expand.grid(ar=0:10, ma=0:10)
 
 getaic = function(ar, ma, x){
     arima(x, order=c(ar, 0, ma), optim.control=list(maxit=1000))$aic
