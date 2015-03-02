@@ -198,3 +198,90 @@ acf(X)
 pacf(X)
 ```
 
+We'll search over a grid to find the best ARMA model as determined by AIC.
+
+```{r}
+# Parameters to search over:
+#ap = expand.grid(ar=3:6, ma=3:6)
+ap = expand.grid(ar=1:7, ma=1:7)
+getaic = function(ar, ma, x=X){
+    arima(x, order=c(ar, 0, ma), optim.control=list(maxit=1000))$aic
+}
+aicvals = mapply(getaic, ap$ar, ap$ma)
+plot(aicvals)
+```
+
+Note- we needed to extend the maximum number of iterations in order to
+compute accurate AIC values for the larger models.
+Surprising how fast this becomes computationally expensive.
+
+```{r}
+ap[which.min(aicvals), ]
+
+arma1 = arima(X, order=c(6, 0, 6), optim.control=list(maxit=1000))
+arma1$aic
+```
+
+The AIC criteria chooses an ARMA(6, 6) model.
+
+Check if the residuals resemble white noise.
+
+```{r}
+acf(residuals(arma1))
+pacf(residuals(arma1))
+```
+
+We still see spikes at 24. These make sense because they represent the
+following day. Let's compare this with a larger AR model.
+
+```{r}
+ar1 = ar(X, method='yw', order.max=35)
+ar1$order
+```
+
+Yule-Walker is the default.
+We'll bump the maximum order from 31 up to 35.
+
+The AR model chose an AR(32) model based on AIC. Let's see how these
+residuals look.
+
+```{r}
+r1 = na.omit(ar1$resid)
+acf(r1)
+pacf(r1)
+```
+
+They look more like white noise than the ARMA(6, 6) model.
+I wonder if the fit looks any different with
+other algorithms? The default uses Yule-Walker, but there's also MLE and
+OLS to try.
+
+```{r}
+ar2 = ar(X, order.max=35, method='ols', intercept=FALSE)
+ar2$order
+r2 = na.omit(ar2$resid)
+acf(r2)
+pacf(r2)
+```
+
+We don't need to fit an intercept because the data is centered.
+
+So OLS chose an AR(32) model. 
+
+```{r}
+ar3 = ar(X, order.max=35, method='burg', intercept=FALSE)
+ar3$order
+r3 = na.omit(ar3$resid)
+acf(r3)
+pacf(r3)
+```
+
+Surprising that the coefficients are all different. For example, we look at
+the first three:
+
+```{r}
+first4 = data.frame('yule-walker'=ar1$ar[1:4], 'ols'=ar2$ar[1:4],
+           'burg'=ar3$ar[1:4])
+first4
+```
+
