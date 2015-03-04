@@ -71,15 +71,22 @@ This is preferable to a fit based on the categorical
 variable year since the cubic polynomial is smooth and therefore will not
 contribute any discontinuities to the time series.
 
-The following general linear model was used:
+Experience tells us that traffic varies primarily according to time of 
+day, and also by the day of the week. Moreover, hourly patterns are
+different on different days of the week. It's also possible that there are
+annual trends.
+
+The above observations suggest the following general linear model:
 
 $$
     count = time + time^2 + time^3 + month + weekday + hour + weekday:hour + \epsilon
 $$
 
 Here $time$ is continuous and all other predictor variables are categorical.
+$weekday$ and $hour$ are the main effects for day of the week and hour.
 $weekday:hour$ is the interaction term between weekday and hour.
-Note that the polynomial terms are actually orthogonal polynomials, as is the
+$month$ accounts for any annual seasonal trends.
+Note that the polynomial time terms are actually orthogonal polynomials, as is the
 default in R's `poly` function. For convenience we express them in this form.
 
 Let $Y_t = count$, $m_t = time + time^2 + time^3$, $s_t = month + weekday +
@@ -107,7 +114,7 @@ boxcox(lm(count ~ hour + weekday + hour:weekday + month + poly(time, 3), sr1))
 f = count^(1/3) ~  hour + weekday + hour:weekday + month + poly(time, 3)
 ```
 
-## Outlier detection and removal
+### Outlier detection and removal
 
 The initial fit of the linear model identified suspicious data points where the sensor may
 have stopped working.
@@ -146,24 +153,32 @@ We still observe the same effect, but it's not as bad.
 
 ### Interpretation
 
-Experience tells us that traffic varies primarily according to time of 
-day, and also by the day of the week. 
-
-This analysis confirms this.
-#TODO- 
-
-$$
-    count^{(1/3)} = time + time^2 + time^3 + month + weekday + hour + weekday:hour + \epsilon
-$$
-
+Inspecting the corresponding ANOVA table tells us much about the relative
+sources of variation in the count data.
 
 ```{r}
+summary(fit2)$adj.r.squared
+
 a2 = anova(fit2)
-a2$percent = a2[, 'Sum Sq'] / sum(a2[, 'Sum Sq'])
+a2$percent = 100 * a2[, 'Sum Sq'] / sum(a2[, 'Sum Sq'])
 kable(a2)
 ```
 
+The adjusted $R^2$ value is 0.97, so this model explains 97% of the
+variation in the cube root of counts.
 
+We observe that $hour$ alone accounts for 89% of the variation, while the
+long term trend due to time explains only 1% after the seasonal variables are
+in the model.
+
+The annual seasonal effect of $month$ is tiny, accounting for just 0.14% of
+variation after $hour$ and $week$ are included. This means that traffic is relatively constant throughout the
+year.
+
+Possible questions: When should engineers plan construction around this
+sensor to cause the smallest disruption to traffic?
+From the above insights we conclude that the time of the day matters mostin
+traffic flow, and that any time in the year is fine.
 
 ## Finding consecutive runs
 
