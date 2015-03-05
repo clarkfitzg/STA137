@@ -167,6 +167,7 @@ kable(a2)
 The adjusted $R^2$ value is 0.97, so this model explains 97% of the
 variation in the cube root of counts.
 
+Consider the relative magnitudes of the effects.
 We observe that $hour$ alone accounts for 89% of the variation, while the
 long term trend due to time explains only 1% after the seasonal variables are
 in the model.
@@ -177,8 +178,20 @@ year.
 
 Possible questions: When should engineers plan construction around this
 sensor to cause the smallest disruption to traffic?
-From the above insights we conclude that the time of the day matters mostin
-traffic flow, and that any time in the year is fine.
+From the above insights we conclude that the time of the day matters most, 
+and that any time in the year is fine.
+
+Interesting side note- the p values presented in the ANOVA table are
+misleading. 
+We can add a random noise term, and it still has a 
+p value that's numerically 0. But the relative magnitude of the
+corresponding sum of squares is insignificant.
+
+```{r}
+sr2$noise = as.factor(sample(1:12, size=nrow(sr2), replace=TRUE))
+f2 = count^(1/3) ~ noise + hour + weekday + hour:weekday + poly(time, 3)
+anova(lm(f2, sr2))
+```
 
 ## Finding consecutive runs
 
