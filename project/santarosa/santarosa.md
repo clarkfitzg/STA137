@@ -135,7 +135,7 @@ boxcox(lm(count ~ hour + weekday + hour:weekday + month + poly(time, 3), sr1))
 f = count^(1/3) ~  hour + weekday + hour:weekday + month + poly(time, 3)
 ```
 
-## Outlier detection and removal
+### Outlier detection and removal
 
 The initial fit of the linear model identified suspicious data points where the sensor may
 have stopped working.
@@ -226,18 +226,47 @@ kable(a2)
 The adjusted $R^2$ value is 0.97, so this model explains 97% of the
 variation in the cube root of counts.
 
+Consider the relative magnitudes of the effects.
 We observe that $hour$ alone accounts for 89% of the variation, while the
 long term trend due to time explains only 1% after the seasonal variables are
 in the model.
 
-The annual seasonal effect of month is tiny, accounting for just 0.14% of
-variation after hour and week are included. This means that traffic is relatively constant throughout the
+The annual seasonal effect of $month$ is tiny, accounting for just 0.14% of
+variation after $hour$ and $week$ are included. This means that traffic is relatively constant throughout the
 year.
 
 Possible questions: When should engineers plan construction around this
 sensor to cause the smallest disruption to traffic?
-From the above insights we conclude that the time of the day matters mostin
-traffic flow, and that any time in the year is fine.
+From the above insights we conclude that the time of the day matters most, 
+and that any time in the year is fine.
+
+Interesting side note- the p values presented in the ANOVA table are
+misleading. 
+We can add a random noise term, and it still has a 
+p value that's numerically 0. But the relative magnitude of the
+corresponding sum of squares is insignificant.
+
+
+```r
+sr2$noise = as.factor(sample(1:12, size=nrow(sr2), replace=TRUE))
+f2 = count^(1/3) ~ noise + hour + weekday + hour:weekday + poly(time, 3)
+anova(lm(f2, sr2))
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: count^(1/3)
+##                  Df Sum Sq Mean Sq   F value    Pr(>F)    
+## noise            11     24     2.1    22.154 < 2.2e-16 ***
+## hour             23 140119  6092.1 62871.031 < 2.2e-16 ***
+## weekday           6   5973   995.6 10274.195 < 2.2e-16 ***
+## poly(time, 3)     3   1385   461.5  4763.128 < 2.2e-16 ***
+## hour:weekday    138   5606    40.6   419.208 < 2.2e-16 ***
+## Residuals     49208   4768     0.1                        
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
 
 ## Finding consecutive runs
 
@@ -270,14 +299,14 @@ dim(sr3)
 ```
 
 ```
-## [1] 6228   10
+## [1] 6228   11
 ```
 
 ```r
 with(sr3, plot(time, res, col=alpha('black', 0.2)))
 ```
 
-![plot of chunk unnamed-chunk-10](figure/unnamed-chunk-10-1.png) 
+![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png) 
 
 ```r
 save(sr3, file='cleaned.Rda')
@@ -298,7 +327,7 @@ X = sr33$X
 with(sr33, plot(time, X))
 ```
 
-![plot of chunk unnamed-chunk-11](figure/unnamed-chunk-11-1.png) 
+![plot of chunk unnamed-chunk-12](figure/unnamed-chunk-12-1.png) 
 
 Let's make sure that the fitting worked using a week's worth of data.
 
@@ -309,7 +338,7 @@ with(sr33[small, ], plot(time, count, lwd=1.5, type='l'))
 with(sr33[small, ], lines(time, fitted, lty=2, col='red'))
 ```
 
-![plot of chunk unnamed-chunk-12](figure/unnamed-chunk-12-1.png) 
+![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-1.png) 
 
 The fitted values look as expected.
 
@@ -320,7 +349,7 @@ Here are the corresponding residuals.
 with(sr33[small, ], plot(time, X, type='l'))
 ```
 
-![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13-1.png) 
+![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-1.png) 
 
 ## Time Series
 
@@ -331,13 +360,13 @@ We now can begin the time series analysis.
 acf(X)
 ```
 
-![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-1.png) 
+![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-1.png) 
 
 ```r
 pacf(X)
 ```
 
-![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-2.png) 
+![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-2.png) 
 
 We'll search over a grid to find the best ARMA model as determined by AIC.
 
@@ -353,7 +382,7 @@ aicvals = mapply(getaic, ap$ar, ap$ma)
 plot(aicvals)
 ```
 
-![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15-1.png) 
+![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-1.png) 
 
 Note- we needed to extend the maximum number of iterations in order to
 compute accurate AIC values for the larger models.
@@ -387,13 +416,13 @@ Check if the residuals resemble white noise.
 acf(residuals(arma1))
 ```
 
-![plot of chunk unnamed-chunk-17](figure/unnamed-chunk-17-1.png) 
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-1.png) 
 
 ```r
 pacf(residuals(arma1))
 ```
 
-![plot of chunk unnamed-chunk-17](figure/unnamed-chunk-17-2.png) 
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-2.png) 
 
 We still see spikes at 24. These make sense because they represent the
 following day. Let's compare this with a larger AR model.
@@ -420,13 +449,13 @@ r1 = na.omit(ar1$resid)
 acf(r1)
 ```
 
-![plot of chunk unnamed-chunk-19](figure/unnamed-chunk-19-1.png) 
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-1.png) 
 
 ```r
 pacf(r1)
 ```
 
-![plot of chunk unnamed-chunk-19](figure/unnamed-chunk-19-2.png) 
+![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-2.png) 
 
 They look more like white noise than the ARMA(6, 6) model.
 I wonder if the fit looks any different with
@@ -448,13 +477,13 @@ r2 = na.omit(ar2$resid)
 acf(r2)
 ```
 
-![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-1.png) 
+![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-1.png) 
 
 ```r
 pacf(r2)
 ```
 
-![plot of chunk unnamed-chunk-20](figure/unnamed-chunk-20-2.png) 
+![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-2.png) 
 
 We don't need to fit an intercept because the data is centered.
 
@@ -475,13 +504,13 @@ r3 = na.omit(ar3$resid)
 acf(r3)
 ```
 
-![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-1.png) 
+![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22-1.png) 
 
 ```r
 pacf(r3)
 ```
 
-![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-2.png) 
+![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22-2.png) 
 
 Surprising that the coefficients are all different. For example, we look at
 the first three:
@@ -544,9 +573,6 @@ To evaluate the performance on the rough part we'll use a fit on the first
 ar1300 = ar(X[1:1300], order.max=35)
 ```
 
-This chooses the much simpler AR(4) model instead of the AR(32) models
-chosen previously.
-
 We predict the next 99.
 
 
@@ -555,7 +581,7 @@ preds = predict(ar1300, n.ahead=99)$pred
 plot(preds)
 ```
 
-![plot of chunk unnamed-chunk-25](figure/unnamed-chunk-25-1.png) 
+![plot of chunk unnamed-chunk-26](figure/unnamed-chunk-26-1.png) 
 
 Lets examine the first 10 predictions compared with the actual values.
 
@@ -566,7 +592,7 @@ plot(d, X[1301:1399], type='l')
 lines(d, preds, col='blue')
 ```
 
-![plot of chunk unnamed-chunk-26](figure/unnamed-chunk-26-1.png) 
+![plot of chunk unnamed-chunk-27](figure/unnamed-chunk-27-1.png) 
 
 # Computing
 

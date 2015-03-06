@@ -375,9 +375,6 @@ To evaluate the performance on the rough part we'll use a fit on the first
 ar1300 = ar(X[1:1300], order.max=35)
 ```
 
-This chooses the much simpler AR(4) model instead of the AR(32) models
-chosen previously.
-
 We predict the next 99.
 
 ```{r}
