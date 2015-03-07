@@ -258,11 +258,11 @@ anova(lm(f2, sr2))
 ## 
 ## Response: count^(1/3)
 ##                  Df Sum Sq Mean Sq   F value    Pr(>F)    
-## noise            11     24     2.1    22.154 < 2.2e-16 ***
-## hour             23 140119  6092.1 62871.031 < 2.2e-16 ***
-## weekday           6   5973   995.6 10274.195 < 2.2e-16 ***
-## poly(time, 3)     3   1385   461.5  4763.128 < 2.2e-16 ***
-## hour:weekday    138   5606    40.6   419.208 < 2.2e-16 ***
+## noise            11     70     6.4    66.144 < 2.2e-16 ***
+## hour             23 140073  6090.2 62854.351 < 2.2e-16 ***
+## weekday           6   5971   995.1 10270.235 < 2.2e-16 ***
+## poly(time, 3)     3   1384   461.5  4762.718 < 2.2e-16 ***
+## hour:weekday    138   5607    40.6   419.362 < 2.2e-16 ***
 ## Residuals     49208   4768     0.1                        
 ## ---
 ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
@@ -314,15 +314,13 @@ save(sr3, file='cleaned.Rda')
 
 ## Common sense check
 
-We'll first focus on the third
-group. For ease of further analysis we'll center and scale the data, and
-call the resulting vector $X$.
+We'll first focus on the third group. 
+Let $X$ be the resulting series of residuals.
 
 
 ```r
 sr33 = sr3[sr3$group == 3, ]
-sr33$X = scale(sr33$res)
-X = sr33$X
+X = sr33$res
 
 with(sr33, plot(time, X))
 ```
@@ -349,7 +347,9 @@ Here are the corresponding residuals.
 with(sr33[small, ], plot(time, X, type='l'))
 ```
 
-![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14-1.png) 
+```
+## Error in xy.coords(x, y, xlabel, ylabel, log): 'x' and 'y' lengths differ
+```
 
 ## Time Series
 
@@ -404,7 +404,7 @@ arma1$aic
 ```
 
 ```
-## [1] 3776.976
+## [1] -608.5858
 ```
 
 The AIC criteria chooses an ARMA(6, 6) model.
@@ -570,15 +570,35 @@ To evaluate the performance on the rough part we'll use a fit on the first
 
 
 ```r
+d = sr33$time[1301:1399]
 ar1300 = ar(X[1:1300], order.max=35)
+ar1300
+```
+
+```
+## 
+## Call:
+## ar(x = X[1:1300], order.max = 35)
+## 
+## Coefficients:
+##       1        2        3        4        5        6        7        8  
+##  0.2373   0.0709   0.0575   0.0173   0.0046   0.0129   0.0283  -0.0463  
+##       9       10       11       12       13       14       15       16  
+## -0.0001   0.0327   0.0137   0.0044   0.0204  -0.0326   0.0946   0.0142  
+##      17       18       19       20       21       22       23       24  
+## -0.0338  -0.0087   0.0499   0.0193   0.0079  -0.0270   0.0562   0.0954  
+##      25       26       27       28       29       30       31       32  
+##  0.0555  -0.0245   0.0042   0.0171  -0.0167  -0.0705  -0.0280   0.0708  
+## 
+## Order selected 32  sigma^2 estimated as  0.0366
 ```
 
 We predict the next 99.
 
 
 ```r
-preds = predict(ar1300, n.ahead=99)$pred
-plot(preds)
+rough = predict(ar1300, n.ahead=99)
+plot(d, rough$pred)
 ```
 
 ![plot of chunk unnamed-chunk-26](figure/unnamed-chunk-26-1.png) 
@@ -587,12 +607,86 @@ Lets examine the first 10 predictions compared with the actual values.
 
 
 ```r
-d = sr33$time[1301:1399]
 plot(d, X[1301:1399], type='l')
-lines(d, preds, col='blue')
+
+# Our predicitons
+lines(d, rough$pred, col='blue')
+
+# Add a line for 95% confidence
+alpha = 0.05
+zscale = qnorm(1 - alpha/2)
+
+roughpreds = data.frame(time = d
+                        , estimate = rough$pred
+                        , upper = rough$pred + zscale * rough$se
+                        , lower = rough$pred - zscale * rough$se
+                        )
+
+with(roughpreds, lines(time, upper, lty=2))
+with(roughpreds, lines(time, lower, lty=2))
 ```
 
 ![plot of chunk unnamed-chunk-27](figure/unnamed-chunk-27-1.png) 
+
+Add back in trend and seasonality.
+
+
+```r
+# Add back in the smooth component.
+smoothpreds = roughpreds[, -1] + predict(fit2, sr33[1301:1399, ])
+
+# Cube it to get back to the correct scale
+smoothpreds = as.data.frame(smoothpreds ** 3)
+
+# True counts
+plot(d, sr33[1301:1399, 'count'], type='l')
+
+# Our estimates
+smoothpreds$time = d
+with(smoothpreds, lines(time, estimate, col='blue'))
+with(smoothpreds, lines(time, upper, lty=2, col='red'))
+with(smoothpreds, lines(time, lower, lty=2, col='red'))
+```
+
+![plot of chunk unnamed-chunk-28](figure/unnamed-chunk-28-1.png) 
+
+Spectral analysis
+
+
+```r
+Xts = ts(X)
+sp = spectrum(Xts, log='no', method='ar')
+```
+
+![plot of chunk unnamed-chunk-29](figure/unnamed-chunk-29-1.png) 
+
+```r
+spectrum(Xts)
+```
+
+![plot of chunk unnamed-chunk-29](figure/unnamed-chunk-29-2.png) 
+
+```r
+spectrum(Xts, span=100)
+```
+
+![plot of chunk unnamed-chunk-29](figure/unnamed-chunk-29-3.png) 
+
+The increase as the frequency tends to zero is evidence of long-term memory
+in the traffic counts.
+
+There looks to be a max around 0.04.
+
+
+```r
+bigone = which.max(sp$spec[0.02 < sp$freq & sp$freq < 0.04])
+freq = sp$freq[0.02 < sp$freq & sp$freq < 0.04][bigone]
+1 / freq
+```
+
+```
+## [1] 25.58974
+```
 
 # Computing
 

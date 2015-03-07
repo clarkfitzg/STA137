@@ -228,14 +228,12 @@ save(sr3, file='cleaned.Rda')
 
 ## Common sense check
 
-We'll first focus on the third
-group. For ease of further analysis we'll center and scale the data, and
-call the resulting vector $X$.
+We'll first focus on the third group. 
+Let $X$ be the resulting series of residuals.
 
 ```{r}
 sr33 = sr3[sr3$group == 3, ]
-sr33$X = scale(sr33$res)
-X = sr33$X
+X = sr33$res
 
 with(sr33, plot(time, X))
 ```
@@ -372,22 +370,78 @@ To evaluate the performance on the rough part we'll use a fit on the first
 1300 data points in the series to predict the remaining 99.
 
 ```{r}
+d = sr33$time[1301:1399]
 ar1300 = ar(X[1:1300], order.max=35)
+ar1300
 ```
 
 We predict the next 99.
 
 ```{r}
-preds = predict(ar1300, n.ahead=99)$pred
-plot(preds)
+rough = predict(ar1300, n.ahead=99)
+plot(d, rough$pred)
 ```
 
 Lets examine the first 10 predictions compared with the actual values.
 
 ```{r}
-d = sr33$time[1301:1399]
 plot(d, X[1301:1399], type='l')
-lines(d, preds, col='blue')
+
+# Our predicitons
+lines(d, rough$pred, col='blue')
+
+# Add a line for 95% confidence
+alpha = 0.05
+zscale = qnorm(1 - alpha/2)
+
+roughpreds = data.frame(time = d
+                        , estimate = rough$pred
+                        , upper = rough$pred + zscale * rough$se
+                        , lower = rough$pred - zscale * rough$se
+                        )
+
+with(roughpreds, lines(time, upper, lty=2))
+with(roughpreds, lines(time, lower, lty=2))
+```
+
+Add back in trend and seasonality.
+
+```{r}
+# Add back in the smooth component.
+smoothpreds = roughpreds[, -1] + predict(fit2, sr33[1301:1399, ])
+
+# Cube it to get back to the correct scale
+smoothpreds = as.data.frame(smoothpreds ** 3)
+
+# True counts
+plot(d, sr33[1301:1399, 'count'], type='l')
+
+# Our estimates
+smoothpreds$time = d
+with(smoothpreds, lines(time, estimate, col='blue'))
+with(smoothpreds, lines(time, upper, lty=2, col='red'))
+with(smoothpreds, lines(time, lower, lty=2, col='red'))
+```
+
+Spectral analysis
+
+```{r}
+Xts = ts(X)
+sp = spectrum(Xts, log='no', method='ar')
+spectrum(Xts)
+spectrum(Xts, span=100)
+
+```
+
+The increase as the frequency tends to zero is evidence of long-term memory
+in the traffic counts.
+
+There looks to be a max around 0.04.
+
+```{r}
+bigone = which.max(sp$spec[0.02 < sp$freq & sp$freq < 0.04])
+freq = sp$freq[0.02 < sp$freq & sp$freq < 0.04][bigone]
+1 / freq
 ```
 
 # Computing
